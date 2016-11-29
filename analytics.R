@@ -4,7 +4,10 @@ library('grid');
 library('gtable');
 library('agricolae');
 library('multcomp');
-library(plotrix)
+library(plotrix);
+library('nlme');
+
+
 # R version 2.14.1 (2011-12-22)
 source('M:/anyela/repo/senescence_disease/generic.R');
 
@@ -139,10 +142,11 @@ interactionplots = function(mx)
   
 }
 
-plotInteraction = function(e, ct, ge, gc, data, alttitle=NULL)
+plotInteraction = function(e, ct, ge, gc, data, dt, alttitle=NULL)
 {
+  print(dt)
   copydata = data;
-  cr = length(unique(copydata[['dist']]));
+  cr = length(unique(copydata[[dt]]));
   for(experimentline in e)
   {
     i = which(copydata[[ge]] == experimentline)
@@ -156,16 +160,16 @@ plotInteraction = function(e, ct, ge, gc, data, alttitle=NULL)
       for(trait in c('s', 'w'))
       {
         x = max(mx[[trait]]); y = min(mx[[trait]])
-        interaction.plot(sexp[['date']], sexp[['dist']], sexp[[trait]], col=rainbow(cr), 
+        interaction.plot(sexp[['date']], sexp[[dt]], sexp[[trait]], col=rainbow(cr), 
                          main = paste(experimentline, alttitle, sep=' '), ylab= trait, xlab='month', 
                          lwd=2, legend=F, cex.axis=1, ylim=c(y, x-1));
-        legend("topleft", legend=unique(sexp[['dist']]), bty="n",lwd=2, 
+        legend("topleft", legend=unique(sexp[[dt]]), bty="n",lwd=2, 
                col=rainbow(cr), cex=0.80,title="dist",inset = 0);
         
-        interaction.plot(scont[['date']], scont[['dist']], scont[[trait]], col=rainbow(cr), 
+        interaction.plot(scont[['date']], scont[[dt]], scont[[trait]], col=rainbow(cr), 
                          main = controlline, ylab= trait, xlab='month', lwd=2, ylim=c(y, x-1), legend=F);
-        legend("topleft", legend=unique(scont[['dist']]), bty="n",lwd=2, 
-               col=rainbow(cr), cex=0.80,title="dist",inset = 0);
+        legend("topleft", legend=unique(scont[[dt]]), bty="n",lwd=2, 
+               col=rainbow(cr), cex=0.80,title=dt,inset = 0);
         
       }
     }
@@ -196,7 +200,7 @@ postHoc = function(e=t1exp1, ct=t1control1, ge='genotype', gc='genotype', data=m
         t = summary(tuk);
         tuk.cld <- cld(tuk)   # letter-based display
         j = length(unique(unique(data[[trait2]])));
-        plot(tuk.cld,col=colbox[1:j], cex.axis=0.5, las=2, xaxt="n", 
+        plot(tuk.cld, col=colbox[1:j], cex.axis=0.5, las=2, xaxt="n", 
              xlab="", ylab= paste(tp, 'at ', dt), ylim=c(0, max(sub[[tp]])+1));
         
         text(1.5,0.5, cex=1, controlline); text(j+1.5,0.5, experimentline, cex=1);
@@ -208,24 +212,28 @@ postHoc = function(e=t1exp1, ct=t1control1, ge='genotype', gc='genotype', data=m
     }
   }
   
+  csep=' - ';
+  msep='\\.'
   l = data.frame(test=rownames(l),l, row.names = 1:nrow(l) );
-  l = data.frame(l, monthA=sapply(l$test, function(x) processRow(x,1,1)));
-  l = data.frame(l, GenotypeA=sapply(l$test, function(x) processRow(x,1,2)));
-  l = data.frame(l, monthB=sapply(l$test, function(x) processRow(x,2,1)));
-  l = data.frame(l, GenotypeB=sapply(l$test, function(x) processRow(x,2,2)));
+  l = data.frame(l, monthA=sapply(l$test, function(x) processRow(x,1,1,csep, msep)));
+  l = data.frame(l, GenotypeA=sapply(l$test, function(x) processRow(x,1,2,csep, msep)));
+  l = data.frame(l, monthB=sapply(l$test, function(x) processRow(x,2,1,csep, msep)));
+  l = data.frame(l, GenotypeB=sapply(l$test, function(x) processRow(x,2,2,csep, msep)));
+  l = data.frame(l, samemonth=sapply(rownames(l), 
+                                     function(x) compareValues(as.character(l$monthA[as.numeric(x)]), 
+                                                               as.character(l$monthB[as.numeric(x)])) ));
   return(l)
 }
-
 
 
 
 # split rowname
 # n1 = 1 indicates left of '-' and 2 right
 # n2 = 1 indicates lrft of '.' and 2 right
-processRow = function(x, n1, n3)
+processRow = function(x, n1, n3, csep, msep)
 {
   x= as.character(x);
-  s = strsplit(strsplit(x, '-')[[1]][n1], '\\.')[[1]][n3]
+  s = strsplit(strsplit(x, csep)[[1]][n1], msep)[[1]][n3]
   return(s[[1]])
   
 }
@@ -317,9 +325,9 @@ processPhaseOne = function()
   
   break()
   pdf('T1intplot.pdf')
-  plotInteraction(t1exp1, t1control1, 'genotype', 'genotype', m);
-  plotInteraction(t1exp2, t1control2, 'PopNo', 'genotype', m, 'recomb_subline3');
-  plotInteraction(t1exp3, t1control3, 'genotype', 'genotype', m);
+  plotInteraction(t1exp1, t1control1, 'genotype', 'genotype', dist,  m);
+  plotInteraction(t1exp2, t1control2, 'PopNo', 'genotype', dist, m, 'recomb_subline3');
+  plotInteraction(t1exp3, t1control3, 'genotype', 'genotype', dist, m);
   dev.off()
   
   pdf('T1posthoc1_s.pdf')
@@ -371,37 +379,106 @@ checkOutlier = function(data, item_list)
   return(data)
 }
 
-fitModel = function(data)
+
+compareValues = function(A,B)
 {
   
-  fm = lme(s ~ dist * date * genotype, data=m, random = ~1|genotype)
-  anova(fm)
-  
-  summary(glht(fm, linfct=mcp(genotype = "Tukey")), test = adjusted(type = "bonferroni"))
-  
-  fm = lme(log(w) ~ dist + date + genotype, data=m1, random = ~1|Plant, method='ML')
-  anova(fm)
-  summary(glht(fm, linfct=mcp(genotype = "Tukey")), test = adjusted(type = "bonferroni"))
-  ggplot(m, aes(x = w)) + geom_density() + facet_wrap(genotype ~ date)
-  ggplot(m, aes(x = w)) + geom_density()
-  i = intersect(intersect(intersect(which(m$genotype == 'Bx514'), which(m$date == 1)), 
-                          which(m$dist == 40)), which(round(m$w) <= 2))
-  ggplot(m1, aes(x = w, color=date)) + geom_density() + facet_wrap(genotype ~  dist)
-  m1 = m[which(round(m$w) == 2),];
-  ggplot(m, aes(x = w, color=dist)) + geom_density() + facet_wrap(genotype ~ date)
-  
-  for(gn in unique(m$genotype))
+  if(A == B)
+    return('1')
+  else
+    return('0');
+}
+
+findH = function(data, klist)
+{
+  g1 = intersect(which(data[['genotype']] == as.character(klist[1]$GenotypeA)), 
+                 which(data[['date']] == as.numeric(klist[2]$monthA)));
+  g2 = intersect(which(data[['genotype']] == as.character(klist[3]$GenotypeB)), 
+                 which(data[['date']] == as.numeric(klist[4]$monthB)));
+  mean(data[g1, 's'])
+  mean(data[g2, 's'])
+  if(mean(data[g1, 's']) >  mean(data[g2, 's']))
   {
-    sub = m[which(m$genotype == gn), ];
-    p = ggplot(sub, aes(x = w)) + geom_density() + facet_wrap(Name1 ~ dist)
-    print(p)
-    if(readline(gn) == 'q') { break();}
-    
-    
+    return(1)
   }
+  if(mean(data[g1, 's']) <  mean(data[g2, 's']))
+  {
+    return(2)
+  }
+  else
+    return(0)
+}
+
+extractPvalue = function(l, data, csep, msep)
+{
   
+  
+  p = data.frame(l$test$pvalues);
+  p = data.frame(test=rownames(p),p, row.names = 1:nrow(p) );
+  p = data.frame(p, GenotypeA =sapply(p$test, function(x) processRow(x,1,1,csep, msep)));
+  p = data.frame(p, monthA=sapply(p$test, function(x) processRow(x,1,2, csep, msep)));
+  p = data.frame(p, GenotypeB =sapply(p$test, function(x) processRow(x,2,1,csep, msep)));
+  p = data.frame(p, monthB=sapply(p$test, function(x) processRow(x,2,2, csep, msep)));
+  p = data.frame(p, dist1=sapply(p$test, function(x) processRow(x,1,3, csep, msep)));
+  p = data.frame(p, dist2=sapply(p$test, function(x) processRow(x,2,3, csep, msep)));
+  
+  p = data.frame(p, row.names=1:nrow(p));
+  p = data.frame(p, samemonth=sapply(rownames(p), 
+                                     function(x) compareValues(as.character(p$monthA[as.numeric(x)]), 
+                                                               as.character(p$monthB[as.numeric(x)])) ));
+  p = data.frame(p, samedist=sapply(rownames(p), 
+                                     function(x) compareValues(as.character(p$dist1[as.numeric(x)]), 
+                                                               as.character(p$dist2[as.numeric(x)])) ));
+  
+  p1 = data.frame(p, h=sapply(as.numeric(rownames(p)), function(x) 
+    findH(data, p[x, c("GenotypeA","monthA","GenotypeB","monthB")])));
+  h=sapply(as.numeric(rownames(p)[1]), function(x) 
+    findH(data, p[x, c("GenotypeA","monthA","GenotypeB","monthB")]));
+  
+  return(l);
+}
+
+
+fitModel = function(data)
+{
+  data = m;
+  data$tall = with(data, interaction(genotype, date,subdist, drop=T, sep = "_"))
+  fm = lme(w ~ tall, data=data, random = ~1|Plant, method='ML');
+  anova(fm)
+  l = summary(glht(fm, linfct=mcp(tall = "Tukey")), test = adjusted(type = "bonferroni"))
+  csep=' - ';
+  msep='_'
+  ll = extractPvalue(data, l, csep, msep);
+  write.table(p, file='testsubdist.csv', sep=',');
+}
+
+hsdPairWise = function()
+{
+  library(foreign)
+  library(multcomp)
+  yield <- read.dta("http://www.stata-press.com/data/r12/yield.dta")
+  tx <- with(yield, interaction(fertilizer, irrigation))
+  amod <- aov(yield ~ tx, data=yield)
+  tuk <- glht(amod, linfct = mcp(tx = "Tukey"))
+  
+  summary(tuk)          # standard display
+  tuk.cld <- cld(tuk)   # letter-based display
+  opar <- par(mai=c(1,1,1.5,1))
+  plot(tuk.cld)
+  par(opar)
+  library(agricolae)
+  HSD.test(amod, "tx", group=TRUE)
   
 }
+
+createSubGroup = function(data)
+{
+  data = data.frame(data, subdist = sapply(data[['dist']], 
+                                   function(x) 
+                                     if(as.integer(as.character(x)) >= 20) { 1 } else {0}));
+  return(data);
+}
+
 
 processPhaseTwo = function()
 {
@@ -413,24 +490,39 @@ processPhaseTwo = function()
   
   colnames(m)[21] = 'genotype'
   m = m[order(m$idtag, m$Plant, m$date, m$dist),];
-  m = convert2factor(m, c('date', 'dist', 'Plant', 'Rep', 'ColPos', 'PopNo'));
+  m = convert2factor(m, c('dist', 'Rep', 'ColPos', 'PopNo'));
   #m = checkOutlier(m, unique(m$genotype));
   m = m[c(-506, -538), ];
   
   o = which(m$genotype == 0)
   m = m[-o,];
-  m1 = resetlevels(m1, 'genotype')
-  
+  m = resetlevels(m, 'genotype')
+  m = createSubGroup(m);
+  return(m)
+}
+ 
+
+
+
+plotPhaseTwo = function()
+{
   t1exp1 = c('Bx510', 'Bx509');
   t1control1 = c('AberStar');
   pdf('T1intplot.pdf')
-  plotInteraction(t1exp1, t1control1, 'genotype', 'genotype', m);
+  plotInteraction(t1exp1, t1control1, 'genotype', 'genotype',  m, 'dist',);
+  plotInteraction(t1exp1, t1control1, 'genotype', 'genotype', m, 'subdist');
   dev.off()
   
   pdf('T1posthoc1_s_dist.pdf')
   pdist1=postHoc(t1exp1, t1control1, 'genotype', 'genotype', m, 'dist', 'date', 's', c(0,0,2,0), c(4,4,6,1));
   dev.off();
   
+  pdf('T1posthoc1_s_subdist.pdf')
+  pdist1=postHoc(t1exp1, t1control1, 'genotype', 'genotype', m, 'subdist', 'date', 
+                 's', c(0,0,2,0), c(4,4,6,1));
+  dev.off();
+  write.table(pdist1, file='resPHsubdist_g1.csv', sep=',')
+
   ##
   pdf('T1posthoc1_s_date.pdf')
   pdate1=postHoc(t1exp1, t1control1, 'genotype', 'genotype', m, 'date', 'dist', 's', c(0,0,2,0), c(4,4,6,1));
@@ -449,13 +541,18 @@ processPhaseTwo = function()
   t1exp1 = c('Bx511', 'Bx514');
   t1control1 = c('AberBite');
   pdf('T2intplot.pdf')
-  plotInteraction(t1exp1, t1control1, 'genotype', 'genotype', m);
+  plotInteraction(t1exp1, t1control1, 'genotype', 'genotype', m, 'dist');
   dev.off()
   
   pdf('T2posthoc1_s_dist.pdf')
   pdist2=postHoc(t1exp1, t1control1, 'genotype', 'genotype', m, 'dist', 'date', 's', c(0,0,2,0), c(4,4,6,1));
   dev.off();
   
+  pdf('T2posthoc1_s_subdist.pdf')
+  pdist2=postHoc(t1exp1, t1control1, 'genotype', 'genotype', m, 'subdist', 'date', 's', c(0,0,2,0), c(4,4,6,1));
+  dev.off();
+  write.table(pdist2, file='resPHsubdist_g2.csv', sep=',')
+    
   pdf('T2posthoc1_s_date.pdf')
   pdate2=postHoc(t1exp1, t1control1, 'genotype', 'genotype', m, 'date', 'dist', 's', c(0,0,2,0), c(4,4,6,1));
   dev.off();
@@ -485,8 +582,7 @@ processPhaseTwo = function()
   pdate1=postHoc(t1exp1, t1control1, 'genotype', 'genotype', m, 'date', 'dist', 's', c(0,0,2,0), c(4,4,6,1));
   dev.off()
   
-  
 }
 
 
-#processPhaseTwo();
+m = processPhaseTwo();
