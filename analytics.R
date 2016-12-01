@@ -178,7 +178,7 @@ plotInteraction = function(e, ct, ge, gc, data, dt, alttitle=NULL)
 
  
 postHoc = function(e=t1exp1, ct=t1control1, ge='genotype', gc='genotype', data=m, trait, trait2, tp,
-                   om, ma)
+                   om, ma, dtname)
 {
   colbox=c("pink", "red", "blue", 'green', 'black', 'brown', 'yellow', 'orange');
   l = c();
@@ -214,15 +214,18 @@ postHoc = function(e=t1exp1, ct=t1control1, ge='genotype', gc='genotype', data=m
   
   csep=' - ';
   msep='\\.'
-  l = data.frame(test=rownames(l),l, row.names = 1:nrow(l) );
-  l = data.frame(l, monthA=sapply(l$test, function(x) processRow(x,1,1,csep, msep)));
-  l = data.frame(l, GenotypeA=sapply(l$test, function(x) processRow(x,1,2,csep, msep)));
-  l = data.frame(l, monthB=sapply(l$test, function(x) processRow(x,2,1,csep, msep)));
-  l = data.frame(l, GenotypeB=sapply(l$test, function(x) processRow(x,2,2,csep, msep)));
-  l = data.frame(l, samemonth=sapply(rownames(l), 
-                                     function(x) compareValues(as.character(l$monthA[as.numeric(x)]), 
-                                                               as.character(l$monthB[as.numeric(x)])) ));
-  return(l)
+  p = data.frame(test=rownames(l),l, row.names = 1:nrow(l) );
+  p = data.frame(p, monthA=sapply(p$test, function(x) processRow(x,1,1,csep, msep)));
+  p = data.frame(p, GenotypeA=sapply(p$test, function(x) processRow(x,1,2,csep, msep)));
+  p = data.frame(p, monthB=sapply(p$test, function(x) processRow(x,2,1,csep, msep)));
+  p = data.frame(p, GenotypeB=sapply(p$test, function(x) processRow(x,2,2,csep, msep)));
+  p = data.frame(p, samemonth=sapply(rownames(p), 
+                                     function(x) compareValues(as.character(p$monthA[as.numeric(x)]), 
+                                                               as.character(p$monthB[as.numeric(x)])) ));
+  
+  p = data.frame(p, h=sapply(as.numeric(rownames(p)), function(x) 
+     findH(data, dtname, p[x, c('dt', "GenotypeA","monthA","GenotypeB","monthB")])));
+  return(p)
 }
 
 
@@ -389,12 +392,16 @@ compareValues = function(A,B)
     return('0');
 }
 
-findH = function(data, klist)
+findH = function(data, dtname, klist)
 {
-  g1 = intersect(which(data[['genotype']] == as.character(klist[1]$GenotypeA)), 
-                 which(data[['date']] == as.numeric(klist[2]$monthA)));
-  g2 = intersect(which(data[['genotype']] == as.character(klist[3]$GenotypeB)), 
-                 which(data[['date']] == as.numeric(klist[4]$monthB)));
+  g1 = intersect(intersect(which(data[['genotype']] == as.character(klist[2]$GenotypeA)), 
+                 which(data[['date']] == as.numeric(klist[3]$monthA))),
+                 which(data[[dtname]] == as.character(klist[1]$dt)));
+  
+  
+  g2 = intersect(intersect(which(data[['genotype']] == as.character(klist[4]$GenotypeB)), 
+                 which(data[['date']] == as.numeric(klist[5]$monthB))),
+                 which(data[[dtname]] == as.character(klist[1]$dt)));
   mean(data[g1, 's'])
   mean(data[g2, 's'])
   if(mean(data[g1, 's']) >  mean(data[g2, 's']))
@@ -509,17 +516,18 @@ plotPhaseTwo = function()
   t1exp1 = c('Bx510', 'Bx509');
   t1control1 = c('AberStar');
   pdf('T1intplot.pdf')
-  plotInteraction(t1exp1, t1control1, 'genotype', 'genotype',  m, 'dist',);
+  plotInteraction(t1exp1, t1control1, 'genotype', 'genotype',  m, 'dist');
   plotInteraction(t1exp1, t1control1, 'genotype', 'genotype', m, 'subdist');
   dev.off()
   
   pdf('T1posthoc1_s_dist.pdf')
-  pdist1=postHoc(t1exp1, t1control1, 'genotype', 'genotype', m, 'dist', 'date', 's', c(0,0,2,0), c(4,4,6,1));
+  pdist1=postHoc(t1exp1, t1control1, 'genotype', 'genotype', m, 'dist', 'date', 
+                 's', c(0,0,2,0), c(4,4,6,1), 'dist');
   dev.off();
   
   pdf('T1posthoc1_s_subdist.pdf')
   pdist1=postHoc(t1exp1, t1control1, 'genotype', 'genotype', m, 'subdist', 'date', 
-                 's', c(0,0,2,0), c(4,4,6,1));
+                 's', c(0,0,2,0), c(4,4,6,1), 'subdist');
   dev.off();
   write.table(pdist1, file='resPHsubdist_g1.csv', sep=',')
 
