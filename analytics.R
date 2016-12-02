@@ -482,7 +482,7 @@ createSubGroup = function(data)
 {
   data = data.frame(data, subdist = sapply(data[['dist']], 
                                    function(x) 
-                                     if(as.integer(as.character(x)) >= 20) { 1 } else {0}));
+                                     if(as.integer(as.character(x)) > 20) { '25-40' } else {'0-20'}));
   return(data);
 }
 
@@ -526,10 +526,10 @@ plotPhaseTwo = function()
   dev.off();
   
   pdf('T1posthoc1_s_subdist.pdf')
-  pdist1=postHoc(t1exp1, t1control1, 'genotype', 'genotype', m, 'subdist', 'date', 
+  psubdist1=postHoc(t1exp1, t1control1, 'genotype', 'genotype', m, 'subdist', 'date', 
                  's', c(0,0,2,0), c(4,4,6,1), 'subdist');
   dev.off();
-  write.table(pdist1, file='resPHsubdist_g1.csv', sep=',')
+  write.table(psubdist1, file='resPHsubdist_g1.csv', sep=',')
 
   ##
   pdf('T1posthoc1_s_date.pdf')
@@ -556,10 +556,14 @@ plotPhaseTwo = function()
   pdist2=postHoc(t1exp1, t1control1, 'genotype', 'genotype', m, 'dist', 'date', 's', c(0,0,2,0), c(4,4,6,1));
   dev.off();
   
+  #psubdist1=postHoc(t1exp1, t1control1, 'genotype', 'genotype', m, 'subdist', 'date', 
+  #                  's', c(0,0,2,0), c(4,4,6,1), 'subdist');
+  
   pdf('T2posthoc1_s_subdist.pdf')
-  pdist2=postHoc(t1exp1, t1control1, 'genotype', 'genotype', m, 'subdist', 'date', 's', c(0,0,2,0), c(4,4,6,1));
+  psubdist2=postHoc(t1exp1, t1control1, 'genotype', 'genotype', m, 'subdist', 'date', 
+                 's', c(0,0,2,0), c(4,4,6,1), 'subdist');
   dev.off();
-  write.table(pdist2, file='resPHsubdist_g2.csv', sep=',')
+  write.table(psubdist2, file='resPHsubdist_g2.csv', sep=',')
     
   pdf('T2posthoc1_s_date.pdf')
   pdate2=postHoc(t1exp1, t1control1, 'genotype', 'genotype', m, 'date', 'dist', 's', c(0,0,2,0), c(4,4,6,1));
