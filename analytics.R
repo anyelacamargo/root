@@ -142,9 +142,12 @@ interactionplots = function(mx)
   
 }
 
-plotInteraction = function(e, ct, ge, gc, data, dt, alttitle=NULL)
+# col_line = Number of frequencies
+# dt = distance descriptor names
+# data = dataset
+plotInteraction = function(e, ct, ge, gc, data, dt, alttitle=NULL, col_line)
 {
-  print(dt)
+ 
   copydata = data;
   cr = length(unique(copydata[[dt]]));
   for(experimentline in e)
@@ -160,16 +163,17 @@ plotInteraction = function(e, ct, ge, gc, data, dt, alttitle=NULL)
       for(trait in c('s', 'w'))
       {
         x = max(mx[[trait]]); y = min(mx[[trait]])
-        interaction.plot(sexp[['date']], sexp[[dt]], sexp[[trait]], col=rainbow(cr), 
+        interaction.plot(sexp[['date']], sexp[[dt]], sexp[[trait]], col=col_line, 
                          main = paste(experimentline, alttitle, sep=' '), ylab= trait, xlab='month', 
-                         lwd=2, legend=F, cex.axis=1, ylim=c(y, x-1));
+                         lwd=2, legend=F, cex.axis=1, ylim=c(y, x-1), lty = 1:(length(col_line)+1));
         legend("topleft", legend=unique(sexp[[dt]]), bty="n",lwd=2, 
-               col=rainbow(cr), cex=0.80,title="dist",inset = 0);
+               col=col_line, cex=0.80, title=dt,inset = 0, lty = 1:(length(col_line)+1));
         
-        interaction.plot(scont[['date']], scont[[dt]], scont[[trait]], col=rainbow(cr), 
-                         main = controlline, ylab= trait, xlab='month', lwd=2, ylim=c(y, x-1), legend=F);
+        interaction.plot(scont[['date']], scont[[dt]], scont[[trait]], col=col_line, 
+                         main = controlline, ylab= trait, xlab='month', lwd=2, ylim=c(y, x-1), legend=F,
+                         lty = 1:(length(col_line)+1));
         legend("topleft", legend=unique(scont[[dt]]), bty="n",lwd=2, 
-               col=rainbow(cr), cex=0.80,title=dt,inset = 0);
+               col=col_line, cex=0.80,title=dt,inset = 0, lty = 1:(length(col_line)+1));
         
       }
     }
@@ -516,8 +520,8 @@ plotPhaseTwo = function()
   t1exp1 = c('Bx510', 'Bx509');
   t1control1 = c('AberStar');
   pdf('T1intplot.pdf')
-  plotInteraction(t1exp1, t1control1, 'genotype', 'genotype',  m, 'dist');
-  plotInteraction(t1exp1, t1control1, 'genotype', 'genotype', m, 'subdist');
+  plotInteraction(t1exp1, t1control1, 'genotype', 'genotype',  m, 'dist', NULL, rainbow(length(unique(m$dist))));
+  plotInteraction(t1exp1, t1control1, 'genotype', 'genotype', m, 'subdist', NULL, 'black');
   dev.off()
   
   pdf('T1posthoc1_s_dist.pdf')
@@ -549,7 +553,8 @@ plotPhaseTwo = function()
   t1exp1 = c('Bx511', 'Bx514');
   t1control1 = c('AberBite');
   pdf('T2intplot.pdf')
-  plotInteraction(t1exp1, t1control1, 'genotype', 'genotype', m, 'dist');
+  plotInteraction(t1exp1, t1control1, 'genotype', 'genotype', m, 'dist', NULL, rainbow(length(unique(m$dist))));
+  plotInteraction(t1exp1, t1control1, 'genotype', 'genotype', m, 'subdist', NULL, 'black')
   dev.off()
   
   pdf('T2posthoc1_s_dist.pdf')
